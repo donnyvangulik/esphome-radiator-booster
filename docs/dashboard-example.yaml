@@ -1,0 +1,26 @@
+type: vertical-stack
+cards:
+  - type: gauge
+    name: Fan PWM %
+    unit: "%"
+    entity: sensor.fan_pwm_percent
+    min: 0
+    max: 100
+  - type: entities
+    title: Radiator Booster
+    entities:
+      - sensor.ntc1_temperature_inlet
+      - sensor.ntc2_temperature_outlet
+      - sensor.fan_rpm
+      - number.ts1
+      - number.ts2
+      - number.ts1_cool
+      - number.ts2_cool
+      - number.te_heat_on
+      - number.te_heat_off
+      - number.te_cool_on
+      - number.manual_pwm_override
+      - switch.heating_logic_enabled
+      - switch.cooling_logic_enabled
+      - switch.invert_inlet_outlet
+      - button.return_to_auto

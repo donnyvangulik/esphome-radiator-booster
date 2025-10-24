@@ -1,0 +1,417 @@
+esphome:
+  name: radiator-booster
+  friendly_name: Radiator Booster
+  on_boot:
+    priority: 600
+    then:
+      # Always request 12 V from USB-PD (CFG3=ON, CFG1=CFG2=OFF)
+      - output.turn_off: pd_cfg1
+      - output.turn_off: pd_cfg2
+      - output.turn_on: pd_cfg3
+
+esp32:
+  board: adafruit_feather_esp32s3_nopsram
+  framework:
+    type: arduino
+
+# ── QUIET LOGGING ──────────────────────────────────────────────────────────────
+logger:
+  level: WARN
+  logs:
+    sensor: NONE
+    switch: NONE
+    adc.esp32: WARN
+    i2c.arduino: WARN
+    template.sensor: WARN
+    template.number: WARN
+    template.switch: WARN
+    pulse_meter: WARN
+    wifi: WARN
+    api: WARN
+    mdns: WARN
+    esphome.ota: WARN
+    web_server.ota: WARN
+
+api:
+
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "Fan-Pd-Controller"
+    password: "configesp"
+
+captive_portal:
+
+# ---------- Helpers ----------
+globals:
+  # Thermistor transfer function
+  - id: V_to_temp
+    type: std::function<float(float)>
+    restore_value: no
+    initial_value: |-
+      [](float x) -> float {
+        const float NTC_R1 = 10000.0;
+        const float NTC_BETA = 3950.0;
+        float resistance = (3.3 * NTC_R1 / x) - NTC_R1;
+        return 1.0 / ((log(resistance / 10000.0) / NTC_BETA) + (1.0 / (25.0 + 273.15))) - 273.15;
+      }
+  # Last commanded PWM (0.0..1.0) for smoothing
+  - id: g_pwm
+    type: float
+    restore_value: yes
+    initial_value: '0.0'
+  # Manual override state + value
+  - id: manual_active
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
+  - id: manual_pct
+    type: float
+    restore_value: yes
+    initial_value: '0.0'
+
+# ---------- Outputs ----------
+output:
+  # USB-PD config pins
+  - platform: gpio
+    pin: GPIO42
+    id: pd_cfg1
+  - platform: gpio
+    pin: GPIO41
+    id: pd_cfg2
+  - platform: gpio
+    pin: GPIO40
+    id: pd_cfg3
+
+  # PWM to 4-pin fan (25 kHz)
+  - platform: ledc
+    id: fan_pwm
+    pin: GPIO39
+    frequency: 25000 Hz
+    zero_means_zero: true
+
+status_led:
+  pin: GPIO1
+
+i2c:
+  - id: bus_a
+    sda: GPIO9
+    scl: GPIO10
+  - id: bus_b
+    sda: GPIO18
+    scl: GPIO21
+
+# ---------- Sensors ----------
+sensor:
+  - platform: adc
+    id: internal_NTC_ADC
+    pin: GPIO6
+    name: "Internal temperature"
+    unit_of_measurement: "°C"
+    update_interval: never
+    attenuation: 12dB
+    filters:
+      - lambda: |-
+          return id(V_to_temp)(x);
+
+  - platform: adc
+    id: NTC1_ADC
+    pin: GPIO4
+    name: "NTC1 temperature (inlet)"
+    unit_of_measurement: "°C"
+    update_interval: never
+    attenuation: 12dB
+    filters:
+      - lambda: |-
+          return id(V_to_temp)(x);
+
+  - platform: adc
+    id: NTC2_ADC
+    pin: GPIO5
+    name: "NTC2 temperature (outlet)"
+    unit_of_measurement: "°C"
+    update_interval: never
+    attenuation: 12dB
+    filters:
+      - lambda: |-
+          return id(V_to_temp)(x);
+
+  - platform: adc
+    id: V_USB
+    pin: GPIO2
+    name: "USB Voltage"
+    unit_of_measurement: "V"
+    update_interval: 30s         # was 2s — reduce HA event spam
+    attenuation: 12dB
+    filters:
+      - lambda: |-
+          return x * 11.0;
+      - throttle: 30s            # ensure we only publish every 30s at most
+
+  # Fan RPM via tach using RMT-based pulse_meter (no PCNT deprecation warning)
+  - platform: pulse_meter
+    id: fan_rpm
+    name: "Fan RPM"
+    pin:
+      number: GPIO38
+      mode:
+        input: true
+        pullup: true
+    internal_filter: 13us   # debounces very short glitches
+    timeout: 3s             # report 0 if fan stops
+    unit_of_measurement: "rpm"
+    accuracy_decimals: 0
+    filters:
+      - multiply: 0.5       # 2 pulses/rev -> RPM = pulses/min ÷ 2
+
+  # Expose current PWM % for diagnostics
+  - platform: template
+    id: fan_pwm_percent
+    name: "Fan PWM %"
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    update_interval: never
+
+# ---------- Curve tuning (from HA) ----------
+number:
+  # Heating ramp temps: 10% at 27.5°C -> 80% at 50°C
+  - platform: template
+    name: "Ts1 – Tin at curve start (°C)"
+    id: ts1
+    optimistic: true
+    min_value: 10
+    max_value: 60
+    step: 0.5
+    restore_value: true
+    initial_value: 27.5
+
+  - platform: template
+    name: "Ts2 – Tin at curve end (°C)"
+    id: ts2
+    optimistic: true
+    min_value: 20
+    max_value: 80
+    step: 0.5
+    restore_value: true
+    initial_value: 50.0
+
+  # Cooling curve (reversed): 100% at Ts1_cool -> 0% at Ts2_cool (unchanged)
+  - platform: template
+    name: "Ts1_cool – Tin at 100% (°C)"
+    id: ts1_cool
+    optimistic: true
+    min_value: 5
+    max_value: 30
+    step: 0.5
+    restore_value: true
+    initial_value: 12.0
+
+  - platform: template
+    name: "Ts2_cool – Tin at 0% (°C)"
+    id: ts2_cool
+    optimistic: true
+    min_value: 8
+    max_value: 35
+    step: 0.5
+    restore_value: true
+    initial_value: 20.0
+
+  # Eligibility by ΔT (inlet − outlet)
+  - platform: template
+    name: "Te_heat_on – ΔT to enable heating (°C)"
+    id: te_heat_on
+    optimistic: true
+    min_value: 0.5
+    max_value: 15
+    step: 0.5
+    restore_value: true
+    initial_value: 4.0
+
+  - platform: template
+    name: "Te_heat_off – ΔT to disable heating (°C)"
+    id: te_heat_off
+    optimistic: true
+    min_value: 0.0
+    max_value: 15
+    step: 0.5
+    restore_value: true
+    initial_value: 2.5
+
+  - platform: template
+    name: "Te_cool_on – |ΔT| to enable cooling (°C)"
+    id: te_cool_on
+    optimistic: true
+    min_value: 0.5
+    max_value: 15
+    step: 0.5
+    restore_value: true
+    initial_value: 4.0
+
+  # ---------- Manual PWM override slider (0..100%)
+  - platform: template
+    name: "Manual PWM % (override)"
+    id: manual_pwm_slider
+    optimistic: true
+    min_value: 0
+    max_value: 100
+    step: 1
+    restore_value: true
+    initial_value: 0
+    set_action:
+      # When the slider is used, enable manual override and apply immediately
+      - lambda: |-
+          id(manual_pct) = x;           // store % (0..100)
+          if (x <= 0.0f) {
+            id(manual_active) = false;  // slider at 0 disables override
+          } else {
+            id(manual_active) = true;   // any >0 enables override
+          }
+          float duty = id(manual_pct) / 100.0f;
+          if (duty > 0.0f && duty < 0.05f) duty = 0.05f; // honor 5% floor when ON
+          id(g_pwm) = duty;              // sync smoothing state to manual value
+          id(fan_pwm).set_level(duty);
+          id(fan_pwm_percent).publish_state(duty * 100.0f);
+
+# ---------- Scripts ----------
+script:
+  # Single place to compute & apply automation (also called from button)
+  - id: update_control
+    mode: restart
+    then:
+      - lambda: |-
+          // If manual override is active, don't touch it
+          if (id(manual_active)) return;
+
+          // Pick inlet/outlet (optionally swapped)
+          float tin  = id(invert_io).state ? id(NTC2_ADC).state : id(NTC1_ADC).state;
+          float tout = id(invert_io).state ? id(NTC1_ADC).state : id(NTC2_ADC).state;
+
+          // EMA on temps
+          static float tin_f = NAN, tout_f = NAN;
+          auto ema = [](float prev, float x){ return isnan(prev) ? x : (0.2f*x + 0.8f*prev); };
+          tin_f  = ema(tin_f, tin);
+          tout_f = ema(tout_f, tout);
+          float dT = tin_f - tout_f;
+
+          // If both modes are disabled, turn off
+          if (!id(heating_enabled).state && !id(cooling_enabled).state) {
+            id(g_pwm) = 0.0f;
+            id(fan_pwm).set_level(0.0f);
+            id(fan_pwm_percent).publish_state(0.0f);
+            return;
+          }
+
+          // Hysteresis for heating/cooling eligibility (gated by the mode switches)
+          static bool heating = false;
+          static bool cooling = false;
+
+          if (id(heating_enabled).state) {
+            if (heating) {
+              if (dT < id(te_heat_off).state) heating = false;
+            } else {
+              if (dT > id(te_heat_on).state)  heating = true;
+            }
+          } else {
+            heating = false;
+          }
+
+          if (id(cooling_enabled).state && !heating) {
+            if (cooling) {
+              if (-dT < id(te_heat_off).state) cooling = false;  # reuse off hysteresis
+            } else {
+              if (-dT > id(te_cool_on).state) cooling = true;
+            }
+          } else {
+            cooling = false;
+          }
+
+          # Map to PWM
+          float cmd = 0.0f;
+          if (heating) {
+            # 10% at Ts1 (27.5°C) -> 80% at Ts2 (50°C), 0% below Ts1
+            float t1 = id(ts1).state;  # 27.5°C
+            float t2 = id(ts2).state;  # 50.0°C
+            const float y1 = 0.10f;    # 10%
+            const float y2 = 0.80f;    # 80%
+            if (t2 <= t1 + 0.1f)       cmd = y2;                      # degenerate: clamp high
+            else if (tin_f <= t1)      cmd = 0.0f;                    # below t1 = 0%
+            else if (tin_f >= t2)      cmd = y2;                      # at/above t2 = 80%
+            else {                                                     # linear between
+              float frac = (tin_f - t1) / (t2 - t1);                   # 0..1
+              cmd = y1 + frac * (y2 - y1);                             # 0.10..0.80
+            }
+          } else if (cooling) {
+            # Cooling ramp (reversed): 100% at Ts1_cool -> 0% at Ts2_cool (unchanged)
+            float tc1 = id(ts1_cool).state;
+            float tc2 = id(ts2_cool).state;
+            if (tc2 <= tc1 + 0.1f)     cmd = 1.0f;
+            else if (tin_f <= tc1)     cmd = 1.0f;
+            else if (tin_f >= tc2)     cmd = 0.0f;
+            else                       cmd = (tc2 - tin_f) / (tc2 - tc1);
+          } else {
+            cmd = 0.0f;
+          }
+
+          # Enforce small 5% floor when ON
+          if (cmd > 0.0f && cmd < 0.05f) cmd = 0.05f;
+
+          # Output smoothing
+          float alpha = 0.25f;  # output smoothing
+          id(g_pwm) = alpha*cmd + (1.0f - alpha)*id(g_pwm);
+
+          # Apply and publish
+          id(fan_pwm).set_level(id(g_pwm));
+          id(fan_pwm_percent).publish_state( (id(g_pwm) <= 0.0001f) ? 0.0f : (id(g_pwm) * 100.0f) );
+
+# ---------- Buttons & Switches ----------
+button:
+  # One-tap exit from manual override — resets slider and immediately applies automation
+  - platform: template
+    name: "Return to Auto"
+    id: manual_return_to_auto
+    on_press:
+      - lambda: |-
+          id(manual_active) = false;
+          id(manual_pct) = 0.0f;
+      - number.set:
+          id: manual_pwm_slider
+          value: 0
+      # Immediately recompute automation (no waiting for the next interval tick)
+      - script.execute: update_control
+
+switch:
+  # Heating/Cooling mode selection (mutually exclusive / inching)
+  - platform: template
+    name: "Heating logic enabled"
+    id: heating_enabled
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    turn_on_action:
+      - if:
+          condition:
+            switch.is_on: cooling_enabled
+          then:
+            - switch.turn_off: cooling_enabled
+
+  - platform: template
+    name: "Cooling logic enabled"
+    id: cooling_enabled
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    turn_on_action:
+      - if:
+          condition:
+            switch.is_on: heating_enabled
+          then:
+            - switch.turn_off: heating_enabled
+
+  # Swap NTC roles if wired the other way around
+  - platform: template
+    name: "Invert inlet/outlet"
+    id: invert_io
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
