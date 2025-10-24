@@ -1,0 +1,530 @@
+# Radiatorfans tab (drop-in) — plaats deze als één tab onder je custom:simple-tabs > tabs:
+- title: Radiatorfans
+  icon: mdi:fan
+  card:
+    type: vertical-stack
+    cards:
+
+      # ---- Kantoor ----
+      - type: custom:button-card
+        name: Kantoor – Radiator booster
+        icon: mdi:fan
+        show_name: true
+        show_icon: true
+        styles:
+          card: [height: 60px, padding: 12px, background: var(--gray000), border-radius: 16px]
+          name: [align-self: center, padding-left: 8px, color: var(--gray800)]
+          icon: [color: var(--gray800), width: 28px, height: 28px]
+
+      - type: custom:paper-buttons-row
+        styles:
+          display: flex
+          flex-wrap: wrap
+          gap: 8px
+        buttons:
+          - icon: mdi:percent
+            layout: icon|name|state
+            name: PWM
+            entity: sensor.radiator_booster_fan_pwm
+            state: "{{ states(config.entity) | round(0) }}%"
+            ripple: none
+            styles:
+              name: { padding: 0 10px, color: var(--black) }
+              state: { padding: 0 10px, color: var(--gray000) }
+              button:
+                flex-basis: 1
+                flex-shrink: 0
+                display: flex
+                background: var(--active-big)
+                border-radius: 24px
+                color: var(--white)
+                height: 34px
+              icon:
+                "--mdc-icon-size": 26px
+                color: var(--gray800)
+                width: 36px
+                height: 36px
+                display: flex
+                margin-left: "-2px"
+                justify-content: center
+                align-items: center
+                background: var(--gray000)
+                border-radius: 50%
+          - icon: mdi:speedometer
+            layout: icon|name|state
+            name: RPM
+            entity: sensor.radiator_booster_fan_rpm
+            state: "{{ states(config.entity) | round(0) }}"
+            ripple: none
+            styles:
+              name: { padding: 0 10px, color: var(--black) }
+              state: { padding: 0 10px, color: var(--gray000) }
+              button:
+                flex-basis: 1
+                flex-shrink: 0
+                display: flex
+                background: var(--active-big)
+                border-radius: 24px
+                color: var(--white)
+                height: 34px
+              icon:
+                "--mdc-icon-size": 26px
+                color: var(--gray800)
+                width: 36px
+                height: 36px
+                display: flex
+                margin-left: "-2px"
+                justify-content: center
+                align-items: center
+                background: var(--gray000)
+                border-radius: 50%
+          - icon: mdi:thermometer
+            layout: icon|name|state
+            name: Inlet
+            entity: sensor.radiator_booster_ntc1_temperature_inlet
+            state: "{{ states(config.entity) | float(0) | round(1) }} °C"
+            ripple: none
+            styles:
+              name: { padding: 0 10px, color: var(--black) }
+              state: { padding: 0 10px, color: var(--gray000) }
+              button:
+                flex-basis: 1
+                flex-shrink: 0
+                display: flex
+                background: var(--active-big)
+                border-radius: 24px
+                color: var(--white)
+                height: 34px
+              icon:
+                "--mdc-icon-size": 26px
+                color: var(--gray800)
+                width: 36px
+                height: 36px
+                display: flex
+                margin-left: "-2px"
+                justify-content: center
+                align-items: center
+                background: var(--gray000)
+                border-radius: 50%
+          - icon: mdi:delta
+            layout: icon|name|state
+            name: ΔT
+            entity: sensor.radiator_booster_ntc1_temperature_inlet
+            state: >-
+              {{
+                (states('sensor.radiator_booster_ntc1_temperature_inlet') | float(0)
+                - states('sensor.radiator_booster_ntc2_temperature_outlet') | float(0))
+                | round(1)
+              }} °C
+            ripple: none
+            styles:
+              name: { padding: 0 10px, color: var(--black) }
+              state: { padding: 0 10px, color: var(--gray000) }
+              button:
+                flex-basis: 1
+                flex-shrink: 0
+                display: flex
+                background: var(--active-big)
+                border-radius: 24px
+                color: var(--white)
+                height: 34px
+              icon:
+                "--mdc-icon-size": 26px
+                color: var(--gray800)
+                width: 36px
+                height: 36px
+                display: flex
+                margin-left: "-2px"
+                justify-content: center
+                align-items: center
+                background: var(--gray000)
+                border-radius: 50%
+
+      - type: horizontal-stack
+        cards:
+          - type: entities
+            show_header_toggle: false
+            entities:
+              - entity: number.radiator_booster_manual_pwm_override
+                name: Handmatige PWM (%)
+            card_mod:
+              style: |
+                :host { flex: 4 1 0 !important; }  /* 80% */
+                ha-card { margin: 0; }
+          - type: custom:button-card
+            name: Auto
+            show_icon: false
+            tap_action:
+              action: call-service
+              service: button.press
+              target: { entity_id: button.radiator_booster_return_to_auto }
+            styles:
+              card:
+                - padding: 4px 10px
+                - height: 36px
+                - border-radius: 16px
+                - background: var(--gray800)
+                - color: var(--gray000)
+                - align-self: center
+            card_mod:
+              style: |
+                :host { flex: 1 1 0 !important; }  /* 20% */
+
+      - type: custom:gap-card
+        height: 10
+
+      # ---- Tuinkamer ----
+      - type: custom:button-card
+        name: Tuinkamer – Radiator booster
+        icon: mdi:fan
+        show_name: true
+        show_icon: true
+        styles:
+          card: [height: 60px, padding: 12px, background: var(--gray000), border-radius: 16px]
+          name: [align-self: center, padding-left: 8px, color: var(--gray800)]
+          icon: [color: var(--gray800), width: 28px, height: 28px]
+
+      - type: custom:paper-buttons-row
+        styles: { display: flex, flex-wrap: wrap, gap: 8px }
+        buttons:
+          - icon: mdi:percent
+            layout: icon|name|state
+            name: PWM
+            entity: sensor.radiator_booster_tuinkamer_fan_pwm
+            state: "{{ states(config.entity) | round(0) }}%"
+            ripple: none
+            styles: &chipStyles
+              name: { padding: 0 10px, color: var(--black) }
+              state: { padding: 0 10px, color: var(--gray000) }
+              button: { flex-basis: 1, flex-shrink: 0, display: flex, background: var(--active-big), border-radius: 24px, color: var(--white), height: 34px }
+              icon:
+                "--mdc-icon-size": 26px
+                color: var(--gray800)
+                width: 36px
+                height: 36px
+                display: flex
+                margin-left: "-2px"
+                justify-content: center
+                align-items: center
+                background: var(--gray000)
+                border-radius: 50%
+          - icon: mdi:speedometer
+            layout: icon|name|state
+            name: RPM
+            entity: sensor.radiator_booster_tuinkamer_fan_rpm
+            state: "{{ states(config.entity) | round(0) }}"
+            ripple: none
+            styles: *chipStyles
+          - icon: mdi:thermometer
+            layout: icon|name|state
+            name: Inlet
+            entity: sensor.radiator_booster_tuinkamer_ntc1_temperature_inlet
+            state: "{{ states(config.entity) | float(0) | round(1) }} °C"
+            ripple: none
+            styles: *chipStyles
+          - icon: mdi:delta
+            layout: icon|name|state
+            name: ΔT
+            entity: sensor.radiator_booster_tuinkamer_ntc1_temperature_inlet
+            state: >-
+              {{
+                (states('sensor.radiator_booster_tuinkamer_ntc1_temperature_inlet') | float(0)
+                - states('sensor.radiator_booster_tuinkamer_ntc2_temperature_outlet') | float(0))
+                | round(1)
+              }} °C
+            ripple: none
+            styles: *chipStyles
+
+      - type: horizontal-stack
+        cards:
+          - type: entities
+            show_header_toggle: false
+            entities:
+              - entity: number.radiator_booster_tuinkamer_manual_pwm_override
+                name: Handmatige PWM (%)
+            card_mod: { style: ":host { flex: 4 1 0 !important; } ha-card { margin: 0; }" }
+          - type: custom:button-card
+            name: Auto
+            show_icon: false
+            tap_action:
+              action: call-service
+              service: button.press
+              target: { entity_id: button.radiator_booster_tuinkamer_return_to_auto }
+            styles: { card: [padding: 4px 10px, height: 36px, border-radius: 16px, background: var(--gray800), color: var(--gray000), align-self: center] }
+            card_mod: { style: ":host { flex: 1 1 0 !important; }" }
+
+      - type: custom:gap-card
+        height: 10
+
+      # ---- Keuken ----
+      - type: custom:button-card
+        name: Keuken – Radiator booster
+        icon: mdi:fan
+        show_name: true
+        show_icon: true
+        styles:
+          card: [height: 60px, padding: 12px, background: var(--gray000), border-radius: 16px]
+          name: [align-self: center, padding-left: 8px, color: var(--gray800)]
+          icon: [color: var(--gray800), width: 28px, height: 28px]
+
+      - type: custom:paper-buttons-row
+        styles: { display: flex, flex-wrap: wrap, gap: 8px }
+        buttons:
+          - icon: mdi:percent
+            layout: icon|name|state
+            name: PWM
+            entity: sensor.radiator_booster_keuken_fan_pwm
+            state: "{{ states(config.entity) | round(0) }}%"
+            ripple: none
+            styles: *chipStyles
+          - icon: mdi:speedometer
+            layout: icon|name|state
+            name: RPM
+            entity: sensor.radiator_booster_keuken_fan_rpm
+            state: "{{ states(config.entity) | round(0) }}"
+            ripple: none
+            styles: *chipStyles
+          - icon: mdi:thermometer
+            layout: icon|name|state
+            name: Inlet
+            entity: sensor.radiator_booster_keuken_ntc1_temperature_inlet
+            state: "{{ states(config.entity) | float(0) | round(1) }} °C"
+            ripple: none
+            styles: *chipStyles
+          - icon: mdi:delta
+            layout: icon|name|state
+            name: ΔT
+            entity: sensor.radiator_booster_keuken_ntc1_temperature_inlet
+            state: >-
+              {{
+                (states('sensor.radiator_booster_keuken_ntc1_temperature_inlet') | float(0)
+                - states('sensor.radiator_booster_keuken_ntc2_temperature_outlet') | float(0))
+                | round(1)
+              }} °C
+            ripple: none
+            styles: *chipStyles
+
+      - type: horizontal-stack
+        cards:
+          - type: entities
+            show_header_toggle: false
+            entities:
+              - entity: number.radiator_booster_keuken_manual_pwm_override
+                name: Handmatige PWM (%)
+            card_mod: { style: ":host { flex: 4 1 0 !important; } ha-card { margin: 0; }" }
+          - type: custom:button-card
+            name: Auto
+            show_icon: false
+            tap_action:
+              action: call-service
+              service: button.press
+              target: { entity_id: button.radiator_booster_keuken_return_to_auto }
+            styles: { card: [padding: 4px 10px, height: 36px, border-radius: 16px, background: var(--gray800), color: var(--gray000), align-self: center] }
+            card_mod: { style: ":host { flex: 1 1 0 !important; }" }
+
+      - type: custom:gap-card
+        height: 10
+
+      # ---- Woonkamer ----
+      - type: custom:button-card
+        name: Woonkamer – Radiator booster
+        icon: mdi:fan
+        show_name: true
+        show_icon: true
+        styles:
+          card: [height: 60px, padding: 12px, background: var(--gray000), border-radius: 16px]
+          name: [align-self: center, padding-left: 8px, color: var(--gray800)]
+          icon: [color: var(--gray800), width: 28px, height: 28px]
+
+      - type: custom:paper-buttons-row
+        styles: { display: flex, flex-wrap: wrap, gap: 8px }
+        buttons:
+          - icon: mdi:percent
+            layout: icon|name|state
+            name: PWM
+            entity: sensor.radiator_booster_woonkamer_fan_pwm
+            state: "{{ states(config.entity) | round(0) }}%"
+            ripple: none
+            styles: *chipStyles
+          - icon: mdi:speedometer
+            layout: icon|name|state
+            name: RPM
+            entity: sensor.radiator_booster_woonkamer_fan_rpm
+            state: "{{ states(config.entity) | round(0) }}"
+            ripple: none
+            styles: *chipStyles
+          - icon: mdi:thermometer
+            layout: icon|name|state
+            name: Inlet
+            entity: sensor.radiator_booster_woonkamer_ntc1_temperature_inlet
+            state: "{{ states(config.entity) | float(0) | round(1) }} °C"
+            ripple: none
+            styles: *chipStyles
+          - icon: mdi:delta
+            layout: icon|name|state
+            name: ΔT
+            entity: sensor.radiator_booster_woonkamer_ntc1_temperature_inlet
+            state: >-
+              {{
+                (states('sensor.radiator_booster_woonkamer_ntc1_temperature_inlet') | float(0)
+                - states('sensor.radiator_booster_woonkamer_ntc2_temperature_outlet') | float(0))
+                | round(1)
+              }} °C
+            ripple: none
+            styles: *chipStyles
+
+      - type: horizontal-stack
+        cards:
+          - type: entities
+            show_header_toggle: false
+            entities:
+              - entity: number.radiator_booster_woonkamer_manual_pwm_override
+                name: Handmatige PWM (%)
+            card_mod: { style: ":host { flex: 4 1 0 !important; } ha-card { margin: 0; }" }
+          - type: custom:button-card
+            name: Auto
+            show_icon: false
+            tap_action:
+              action: call-service
+              service: button.press
+              target: { entity_id: button.radiator_booster_woonkamer_return_to_auto }
+            styles: { card: [padding: 4px 10px, height: 36px, border-radius: 16px, background: var(--gray800), color: var(--gray000), align-self: center] }
+            card_mod: { style: ":host { flex: 1 1 0 !important; }" }
+
+      - type: custom:gap-card
+        height: 10
+
+      # ---- Eetkamer ----
+      - type: custom:button-card
+        name: Eetkamer – Radiator booster
+        icon: mdi:fan
+        show_name: true
+        show_icon: true
+        styles:
+          card: [height: 60px, padding: 12px, background: var(--gray000), border-radius: 16px]
+          name: [align-self: center, padding-left: 8px, color: var(--gray800)]
+          icon: [color: var(--gray800), width: 28px, height: 28px]
+
+      - type: custom:paper-buttons-row
+        styles: { display: flex, flex-wrap: wrap, gap: 8px }
+        buttons:
+          - icon: mdi:percent
+            layout: icon|name|state
+            name: PWM
+            entity: sensor.radiator_booster_eetkamer_fan_pwm
+            state: "{{ states(config.entity) | round(0) }}%"
+            ripple: none
+            styles: *chipStyles
+          - icon: mdi:speedometer
+            layout: icon|name|state
+            name: RPM
+            entity: sensor.radiator_booster_eetkamer_fan_rpm
+            state: "{{ states(config.entity) | round(0) }}"
+            ripple: none
+            styles: *chipStyles
+          - icon: mdi:thermometer
+            layout: icon|name|state
+            name: Inlet
+            entity: sensor.radiator_booster_eetkamer_ntc1_temperature_inlet
+            state: "{{ states(config.entity) | float(0) | round(1) }} °C"
+            ripple: none
+            styles: *chipStyles
+          - icon: mdi:delta
+            layout: icon|name|state
+            name: ΔT
+            entity: sensor.radiator_booster_eetkamer_ntc1_temperature_inlet
+            state: >-
+              {{
+                (states('sensor.radiator_booster_eetkamer_ntc1_temperature_inlet') | float(0)
+                - states('sensor.radiator_booster_eetkamer_ntc2_temperature_outlet') | float(0))
+                | round(1)
+              }} °C
+            ripple: none
+            styles: *chipStyles
+
+      - type: horizontal-stack
+        cards:
+          - type: entities
+            show_header_toggle: false
+            entities:
+              - entity: number.radiator_booster_eetkamer_manual_pwm_override
+                name: Handmatige PWM (%)
+            card_mod: { style: ":host { flex: 4 1 0 !important; } ha-card { margin: 0; }" }
+          - type: custom:button-card
+            name: Auto
+            show_icon: false
+            tap_action:
+              action: call-service
+              service: button.press
+              target: { entity_id: button.radiator_booster_eetkamer_return_to_auto }
+            styles: { card: [padding: 4px 10px, height: 36px, border-radius: 16px, background: var(--gray800), color: var(--gray000), align-self: center] }
+            card_mod: { style: ":host { flex: 1 1 0 !important; }" }
+
+      - type: custom:gap-card
+        height: 10
+
+      # ---- Gang ----
+      - type: custom:button-card
+        name: Gang – Radiator booster
+        icon: mdi:fan
+        show_name: true
+        show_icon: true
+        styles:
+          card: [height: 60px, padding: 12px, background: var(--gray000), border-radius: 16px]
+          name: [align-self: center, padding-left: 8px, color: var(--gray800)]
+          icon: [color: var(--gray800), width: 28px, height: 28px]
+
+      - type: custom:paper-buttons-row
+        styles: { display: flex, flex-wrap: wrap, gap: 8px }
+        buttons:
+          - icon: mdi:percent
+            layout: icon|name|state
+            name: PWM
+            entity: sensor.radiator_booster_gang_fan_pwm
+            state: "{{ states(config.entity) | round(0) }}%"
+            ripple: none
+            styles: *chipStyles
+          - icon: mdi:speedometer
+            layout: icon|name|state
+            name: RPM
+            entity: sensor.radiator_booster_gang_fan_rpm
+            state: "{{ states(config.entity) | round(0) }}"
+            ripple: none
+            styles: *chipStyles
+          - icon: mdi:thermometer
+            layout: icon|name|state
+            name: Inlet
+            entity: sensor.radiator_booster_gang_ntc1_temperature_inlet
+            state: "{{ states(config.entity) | float(0) | round(1) }} °C"
+            ripple: none
+            styles: *chipStyles
+          - icon: mdi:delta
+            layout: icon|name|state
+            name: ΔT
+            entity: sensor.radiator_booster_gang_ntc1_temperature_inlet
+            state: >-
+              {{
+                (states('sensor.radiator_booster_gang_ntc1_temperature_inlet') | float(0)
+                - states('sensor.radiator_booster_gang_ntc2_temperature_outlet') | float(0))
+                | round(1)
+              }} °C
+            ripple: none
+            styles: *chipStyles
+
+      - type: horizontal-stack
+        cards:
+          - type: entities
+            show_header_toggle: false
+            entities:
+              - entity: number.radiator_booster_gang_manual_pwm_override
+                name: Handmatige PWM (%)
+            card_mod: { style: ":host { flex: 4 1 0 !important; } ha-card { margin: 0; }" }
+          - type: custom:button-card
+            name: Auto
+            show_icon: false
+            tap_action:
+              action: call-service
+              service: button.press
+              target: { entity_id: button.radiator_booster_gang_return_to_auto }
+            styles: { card: [padding: 4px 10px, height: 36px, border-radius: 16px, background: var(--gray800), color: var(--gray000), align-self: center] }
+            card_mod: { style: ":host { flex: 1 1 0 !important; }" }
