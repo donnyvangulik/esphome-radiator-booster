@@ -13,6 +13,17 @@ An ESPHome-based controller for a 4-wire PWM fan with temperature-driven curves,
 
 ## Getting started
 
+## Where to buy
+
+Radiator Booster controller board:
+
+- TinyTronics — Radiatorventilator USB‑PD Controller (ESP32‑S3): https://www.tinytronics.nl/nl/domotica/sensoren/klimaat/radiatorventilator-usb-pd-controller-esp32-s3
+
+
+
+> **Hardware requirement:** You'll need a **USB‑PD charger** capable of delivering **12 V** (≥ 2 A recommended) and a USB‑C cable.
+
+
 1. **Clone:**
    ```bash
    git clone https://github.com/<you>/radiator-booster.git
